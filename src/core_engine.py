@@ -25,50 +25,55 @@ TONS_PER_LOT = {
 DB_PATH = Path('spread_trading.db')
 
 def init_db():
-    """Initialize SQLite database with required tables."""
+    """Initialize the database with required tables."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Create users table
-    cursor.execute('''
+    # Check if tables exist and create them if they don't
+    
+    # Users table for authentication and role management
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         user_id TEXT PRIMARY KEY,
         name TEXT,
-        role TEXT
+        role TEXT,
+        affiliation TEXT
     )
-    ''')
+    """)
     
-    # Create spread submissions table
-    cursor.execute('''
+    # Spreads table stores all spread transactions
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS spreads (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT,
         metal TEXT,
         legs_json TEXT,
-        submit_time TIMESTAMP,
+        submit_time TEXT,
         valuation_pnl REAL,
-        at_val_only BOOLEAN,
+        at_val_only INTEGER,
         max_loss REAL,
         status TEXT,
-        response_json TEXT,
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        response_json TEXT
     )
-    ''')
+    """)
     
-    # Create valuation snapshots table
-    cursor.execute('''
+    # Curve snapshots table for storing historical curve data
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS curve_snapshots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         metal TEXT,
-        date DATE,
+        date TEXT,
         data_json TEXT
     )
-    ''')
+    """)
     
-    # Add some sample users if they don't exist
-    cursor.execute("INSERT OR IGNORE INTO users VALUES ('user1', 'User 1', 'trader')")
-    cursor.execute("INSERT OR IGNORE INTO users VALUES ('user2', 'User 2', 'trader')")
-    cursor.execute("INSERT OR IGNORE INTO users VALUES ('marketmaker', 'Market Maker', 'mm')")
+    # Insert default test users if they don't exist
+    cursor.execute("INSERT OR IGNORE INTO users VALUES ('bushy', 'Bushy', 'trader', NULL)")
+    cursor.execute("INSERT OR IGNORE INTO users VALUES ('josh', 'Josh', 'trader', NULL)")
+    cursor.execute("INSERT OR IGNORE INTO users VALUES ('dorans', 'Dorans', 'trader', NULL)")
+    cursor.execute("INSERT OR IGNORE INTO users VALUES ('jimmy', 'Jimmy', 'trader', NULL)")
+    cursor.execute("INSERT OR IGNORE INTO users VALUES ('paddy', 'Paddy', 'trader', NULL)")
+    cursor.execute("INSERT OR IGNORE INTO users VALUES ('marketmaker', 'Market Maker', 'marketmaker', NULL)")
     
     conn.commit()
     conn.close()

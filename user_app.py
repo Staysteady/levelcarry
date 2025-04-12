@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import time
 import json
 from pathlib import Path
+import sqlite3
 
 # Fix for the fitz import issue
 try:
@@ -26,6 +27,48 @@ st.set_page_config(
     layout="wide"
 )
 
+# Add custom CSS to reduce white space and padding
+st.markdown("""
+<style>
+    /* Reduce padding in the main content area */
+    .main .block-container {
+        padding-top: 1rem;
+        padding-right: 1rem;
+        padding-left: 1rem;
+        padding-bottom: 1rem;
+    }
+    
+    /* Reduce padding around tables */
+    [data-testid="stTable"] {
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Reduce margins around headers */
+    h1, h2, h3, h4, h5, h6 {
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Make expanders more compact */
+    .streamlit-expanderHeader {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+    
+    /* Make form elements more compact */
+    .stButton, .stSelectbox, .stDateInput, .stNumberInput {
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Reduce spacing around containers */
+    .stContainer {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Session state initialization
 if 'user_id' not in st.session_state:
     st.session_state.user_id = None
@@ -33,6 +76,8 @@ if 'rates_loaded' not in st.session_state:
     st.session_state.rates_loaded = False
 if 'current_carries' not in st.session_state:
     st.session_state.current_carries = [{"id": 1, "metal": "Aluminum", "legs": [{"id": 1}, {"id": 2}]}]
+if "expander_states" not in st.session_state:
+    st.session_state.expander_states = {}
 
 # List of available metals
 METALS = ["Aluminum", "Copper", "Lead", "Nickel", "Tin", "Zinc"]
@@ -57,11 +102,27 @@ def login_screen():
     
     col1, col2 = st.columns([2, 1])
     
+    # Get all available users from the database
+    conn = sqlite3.connect("spread_trading.db")
+    cursor = conn.cursor()
+    
+    # Get all users
+    cursor.execute("SELECT user_id, name, affiliation FROM users ORDER BY user_id")
+    user_data = cursor.fetchall()
+    conn.close()
+    
+    # Create a list of user_ids
+    user_ids = [""] + [user[0] for user in user_data]
+    
+    # Create a mapping of user_id to display text with affiliation
+    user_display = {user[0]: f"{user[0]} ({user[2]})" if user[2] else user[0] for user in user_data}
+    
     with col1:
         user_id = st.selectbox(
             "Select User",
-            options=["", "user1", "user2"],
+            options=user_ids,
             index=0,
+            format_func=lambda x: user_display.get(x, x),
             help="Select your user ID"
         )
         
@@ -167,10 +228,6 @@ def main_app():
     with tab1:
         st.header("Build Your Spread")
         
-        # Initialize collapse state if not exists
-        if "collapse_all" not in st.session_state:
-            st.session_state.collapse_all = False
-        
         # Create a row with left and right buttons
         left_col, spacer, right_col = st.columns([2, 8, 2])
         
@@ -180,18 +237,24 @@ def main_app():
                 if "current_carries" not in st.session_state:
                     st.session_state.current_carries = []
                 
-                # Add a new carry 
+                # Add a new carry - initialize with TWO legs right away
                 st.session_state.current_carries.append({
                     "id": len(st.session_state.current_carries) + 1,
                     "metal": "Aluminum",  # Default metal
-                    "legs": []  # Will be populated when legs are added
+                    "legs": [{"id": 1}, {"id": 2}]  # Initialize with 2 legs
                 })
+                # Initialize new expander state to be open
+                carry_idx = len(st.session_state.current_carries) - 1
+                st.session_state.expander_states[f"carry_{carry_idx}"] = True
                 st.rerun()
         
         # Collapse All button
         with right_col:
             if st.button("Collapse All", use_container_width=True):
-                st.session_state.collapse_all = True
+                # Set all known expanders to collapsed state
+                for i in range(len(st.session_state.current_carries)):
+                    key = f"carry_{i}"
+                    st.session_state.expander_states[key] = False
                 st.rerun()
         
         # Initialize carries if not exist
@@ -200,34 +263,30 @@ def main_app():
         
         # Loop through each carry
         for carry_idx, carry in enumerate(st.session_state.current_carries):
-            with st.expander(f"Carry {carry_idx+1}: {carry['metal']}", expanded=not st.session_state.collapse_all):
-                # When expander is opened, reset collapse_all flag
-                st.session_state.collapse_all = False
+            # Initialize this expander's state if it doesn't exist yet
+            expander_key = f"carry_{carry_idx}"
+            if expander_key not in st.session_state.expander_states:
+                st.session_state.expander_states[expander_key] = True
                 
-                # Metal selection for this carry
-                metal = st.selectbox(
-                    "Metal",
-                    options=METALS,
-                    index=METALS.index(carry['metal']) if carry['metal'] in METALS else 0,
-                    key=f"metal_{carry_idx}"
-                )
-                carry['metal'] = metal
+            # Create the expander without the problematic parameters
+            with st.expander(
+                f"Carry {carry_idx+1}: {carry['metal']}", 
+                expanded=not st.session_state.force_collapse if "force_collapse" in st.session_state and st.session_state.force_collapse else st.session_state.expander_states[expander_key]):
                 
-                # Add/Remove Leg buttons
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("➕ Add Leg", key=f"add_leg_{carry_idx}", 
-                                 disabled=len(carry.get('legs', [])) >= 3):
-                        if 'legs' not in carry:
-                            carry['legs'] = []
-                        carry['legs'].append({
-                            "id": len(carry['legs']) + 1
-                        })
-                with col2:
-                    if st.button("➖ Remove Leg", key=f"remove_leg_{carry_idx}", 
-                                 disabled=len(carry.get('legs', [])) <= 0):
-                        if carry['legs']:
-                            carry['legs'].pop()
+                # Update state tracking to indicate this expander is open
+                st.session_state.expander_states[expander_key] = True
+                
+                # Single metal selector for the entire carry (for all legs)
+                # Create a narrow column for it
+                metal_col, _ = st.columns([1, 3])
+                with metal_col:
+                    metal = st.selectbox(
+                        "Metal",
+                        options=METALS,
+                        index=METALS.index(carry['metal']) if carry['metal'] in METALS else 0,
+                        key=f"metal_{carry_idx}",
+                    )
+                    carry['metal'] = metal
                 
                 # Initialize with two legs if none exist
                 if 'legs' not in carry or not carry['legs']:
@@ -242,40 +301,46 @@ def main_app():
                 
                 # Build leg data outside of form to allow live updates
                 for i, leg in enumerate(carry['legs']):
-                    st.subheader(f"Leg {i+1}")
+                    # Store the leg name as a variable but don't create an input field
+                    leg_name = f"Leg {i+1}"
                     
-                    # Direction radio buttons moved to the top
+                    # Direction radio buttons back on the left
                     direction = st.radio(
-                        f"Direction (Leg {i+1})",
+                        "Direction",  # Provide a label
                         options=["Borrow", "Lend"],
                         horizontal=True,
-                        key=f"direction_{carry_idx}_{i}"
+                        key=f"direction_{carry_idx}_{i}",
+                        label_visibility="collapsed"  # Hide the label while keeping it accessible
                     )
                     
-                    # Date selection and lots in columns
-                    col1, col2, col3 = st.columns([1, 2, 2])
+                    # Create columns with reduced spacing between them for the input fields
+                    # All inputs on the same row with equal sizing
+                    c1, s1, c2, s2, c3, _ = st.columns([1, 0.2, 1, 0.2, 1, 1])
                     
-                    with col1:
+                    with c1:
                         lots = st.number_input(
-                            f"Lots (Leg {i+1})",
+                            f"Lots ({leg_name})",  # Include leg name in the label
                             min_value=1,
                             value=100,
                             step=25,
                             key=f"lots_{carry_idx}_{i}"
                         )
                     
-                    with col2:
+                    with c2:
+                        # Put the start date input at the top
                         start_date = st.date_input(
-                            f"Start Date (Leg {i+1})",
+                            f"Start Date ({leg_name})",  # Include leg name in the label
                             value=cash_date if i == 0 else datetime.now() + timedelta(days=i*30),
-                            key=f"start_date_{carry_idx}_{i}"
+                            key=f"start_date_{carry_idx}_{i}",
+                            format="DD/MM/YYYY"  # UK date format
                         )
                     
-                    with col3:
+                    with c3:
                         end_date = st.date_input(
-                            f"End Date (Leg {i+1})",
+                            f"End Date ({leg_name})",  # Include leg name in the label
                             value=three_m_date if i == 0 else datetime.now() + timedelta(days=(i+1)*30),
-                            key=f"end_date_{carry_idx}_{i}"
+                            key=f"end_date_{carry_idx}_{i}",
+                            format="DD/MM/YYYY"  # UK date format
                         )
                     
                     # Convert dates to datetime for processing
@@ -289,9 +354,37 @@ def main_app():
                         "direction": direction,
                         "start_date": start_datetime,
                         "end_date": end_datetime,
-                        "lots": lots
+                        "lots": lots,
+                        "name": leg_name  # Store the custom name in leg data
                     }
                     legs_data.append(leg_data)
+                
+                # Add Leg and Remove Leg buttons side by side right before the summary section
+                st.write("")  # Add a small spacer
+                
+                # Use the same column structure as the inputs to match widths but reduce right space
+                c1, s1, c2, s2, c3, _ = st.columns([1, 0.2, 1, 0.2, 1, 1])
+                
+                with c1:
+                    # Use container width to ensure consistent width with lots input
+                    if st.button("➕ Add Leg", key=f"add_leg_{carry_idx}", 
+                                disabled=len(carry.get('legs', [])) >= 3,
+                                use_container_width=True):
+                        if 'legs' not in carry:
+                            carry['legs'] = []
+                        carry['legs'].append({
+                            "id": len(carry['legs']) + 1
+                        })
+                        st.rerun()  # Add rerun to refresh the UI
+                
+                with c2:
+                    # Remove Leg button in the next column
+                    if st.button("➖ Remove Leg", key=f"remove_leg_{carry_idx}", 
+                                disabled=len(carry.get('legs', [])) <= 1,  # Changed from 0 to 1 to prevent removing all legs
+                                use_container_width=True):
+                        if carry['legs'] and len(carry['legs']) > 1:  # Additional check to ensure we keep at least 1 leg
+                            carry['legs'].pop()
+                            st.rerun()  # Add rerun to refresh the UI
                 
                 # Calculate valuation immediately (outside of form)
                 if legs_data:
@@ -299,125 +392,157 @@ def main_app():
                         total_pnl, leg_details = price_spread(legs_data)
                         
                         # Show valuation details
-                        st.subheader("Spread Valuation")
+                        st.subheader(f"{metal} Spread Summary")
                         
-                        # Leg details table
+                        # Leg details table - add compact display for tables
                         leg_data_table = []
                         for leg, pnl, rate in leg_details:
                             leg_days = (leg['end_date'] - leg['start_date']).days
                             
+                            # Use the custom leg name if available, otherwise use regular ID
+                            display_leg_name = leg.get('name', f"Leg {leg['id']}")
+                            
+                            # Calculate the total valuation for this leg
+                            total_valuation = None
+                            if rate is not None:
+                                total_valuation = rate * leg_days * leg['lots']
+                            
+                            # Format the rate as dollar amount with 2 decimal places
+                            formatted_rate = None
+                            if rate is not None:
+                                formatted_rate = rate
+                            
                             leg_data_table.append({
-                                "Leg": leg['id'],
+                                "Metal": metal,  # Put Metal first
+                                "Leg": display_leg_name,
                                 "Direction": leg['direction'],
                                 "Start": format_date(leg['start_date']),
                                 "End": format_date(leg['end_date']),
                                 "Days": leg_days,
                                 "Lots": leg['lots'],
-                                "Daily Rate": f"${rate:.2f}/ton/day" if rate is not None else "Unknown",
+                                "Valuation": f"{total_valuation:.2f}" if total_valuation is not None else "Unknown",
+                                "Daily Rate": f"{formatted_rate:.2f}" if formatted_rate is not None else "Unknown",
                                 "P&L": f"${pnl:.2f}" if pnl is not None else "$0.00 (unknown)"
                             })
                         
                         leg_df = pd.DataFrame(leg_data_table)
+                        # Use a smaller table with less padding
                         st.table(leg_df)
                         
-                        # P&L at Valuation
-                        st.subheader("P&L at Valuation")
-                        # Apply color directly based on P&L value
-                        pnl_color = "green" if total_pnl > 0 else "red" if total_pnl < 0 else "gray"
-                        st.markdown(f"### <span style='color:{pnl_color}'>${total_pnl:.2f}</span>", unsafe_allow_html=True)
+                        # Make the valuation sections more compact
+                        col1, col2 = st.columns(2)
                         
                         # Ensure total_pnl is a valid number 
                         safe_total_pnl = 0.0 if total_pnl is None else float(total_pnl)
                         
-                        # Acceptable Cost vs Valuation with sliding scale
-                        st.subheader("Acceptable Cost vs Valuation")
+                        # Calculate the net amount before using it
+                        # Set initial net amount to P&L
+                        net_amount = safe_total_pnl
                         
-                        # Set a range of +/- $50,000 with 0 as the center point (neutral)
-                        # But flip the scale: negative (left) = user pays, positive (right) = user receives
-                        slider_min = -50000.0  # User pays money (negative value = payment from user)
-                        slider_max = 50000.0   # User receives money (positive value = payment to user)
+                        with col1:
+                            # P&L at Valuation
+                            st.subheader("P&L at Valuation")
+                            # Apply color directly based on P&L value
+                            pnl_color = "green" if total_pnl > 0 else "red" if total_pnl < 0 else "gray"
+                            st.markdown(f"### <span style='color:{pnl_color}'>${total_pnl:.2f}</span>", unsafe_allow_html=True)
+                            
+                            # We'll display the Net after the slider calculation is done below
+                            # Creating a placeholder for Net that will be filled later
+                            net_placeholder = st.empty()
                         
-                        # Add increment markers only (no colored bar background)
-                        st.markdown("""
-                        <div style="display: flex; justify-content: space-between; margin-bottom: -15px;">
-                            <span style="color: red;">-$50,000<br/>(Pay)</span>
-                            <span style="color: gray;">-$25,000</span>
-                            <span style="color: gray;">$0</span>
-                            <span style="color: gray;">+$25,000</span>
-                            <span style="color: green;">+$50,000<br/>(Receive)</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # Set slider with 0 as the default value (no adjustment)
-                        acceptable_cost_adjustment = st.slider(
-                            "Sliding Scale ($)",
-                            min_value=slider_min,
-                            max_value=slider_max,
-                            value=0.0,  # Start at zero (neutral position)
-                            step=250.0,
-                            key=f"pnl_slider_{carry_idx}",
-                            label_visibility="collapsed"  # Hide the label since we have the markers
-                        )
+                        with col2:
+                            # Acceptable Cost vs Valuation with sliding scale
+                            st.subheader("Acceptable Cost vs Valuation")
+                            
+                            # Set a range of +/- $50,000 with 0 as the center point (neutral)
+                            # But flip the scale: negative (left) = user pays, positive (right) = user receives
+                            slider_min = -50000.0  # User pays money (negative value = payment from user)
+                            slider_max = 50000.0   # User receives money (positive value = payment to user)
+                            
+                            # Add increment markers only (no colored bar background)
+                            st.markdown("""
+                            <div style="display: flex; justify-content: space-between; margin-bottom: -15px;">
+                                <span style="color: red;">-$50k</span>
+                                <span style="color: gray;">-$25k</span>
+                                <span style="color: gray;">$0</span>
+                                <span style="color: gray;">+$25k</span>
+                                <span style="color: green;">+$50k</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # Set slider with 0 as the default value (no adjustment)
+                            acceptable_cost_adjustment = st.slider(
+                                "Sliding Scale ($)",
+                                min_value=slider_min,
+                                max_value=slider_max,
+                                value=0.0,  # Start at zero (neutral position)
+                                step=250.0,
+                                key=f"pnl_slider_{carry_idx}",
+                                label_visibility="collapsed"  # Hide the label since we have the markers
+                            )
 
-                        # Now add custom CSS to style the slider track
-                        if acceptable_cost_adjustment < 0:
-                            # When slider is negative (paying), color the track red
-                            st.markdown("""
-                            <style>
-                            /* Main track */
-                            [data-testid="stSlider"] > div > div > div > div {
-                                background-color: red !important;
-                            }
-                            </style>
-                            """, unsafe_allow_html=True)
-                        elif acceptable_cost_adjustment > 0:
-                            # When slider is positive (receiving), color the track green
-                            st.markdown("""
-                            <style>
-                            /* Main track */
-                            [data-testid="stSlider"] > div > div > div > div {
-                                background-color: green !important;
-                            }
-                            </style>
-                            """, unsafe_allow_html=True)
-                        else:
-                            # When slider is at zero, keep track neutral gray
-                            st.markdown("""
-                            <style>
-                            /* Main track */
-                            [data-testid="stSlider"] > div > div > div > div {
-                                background-color: #e0e0e0 !important;
-                            }
-                            </style>
-                            """, unsafe_allow_html=True)
+                            # Now add custom CSS to style the slider track
+                            if acceptable_cost_adjustment < 0:
+                                # When slider is negative (paying), color the track red
+                                st.markdown("""
+                                <style>
+                                /* Main track */
+                                [data-testid="stSlider"] > div > div > div > div {
+                                    background-color: red !important;
+                                }
+                                </style>
+                                """, unsafe_allow_html=True)
+                            elif acceptable_cost_adjustment > 0:
+                                # When slider is positive (receiving), color the track green
+                                st.markdown("""
+                                <style>
+                                /* Main track */
+                                [data-testid="stSlider"] > div > div > div > div {
+                                    background-color: green !important;
+                                }
+                                </style>
+                                """, unsafe_allow_html=True)
+                            else:
+                                # When slider is at zero, keep track neutral gray
+                                st.markdown("""
+                                <style>
+                                /* Main track */
+                                [data-testid="stSlider"] > div > div > div > div {
+                                    background-color: #e0e0e0 !important;
+                                }
+                                </style>
+                                """, unsafe_allow_html=True)
+                            
+                            # Display the adjustment amount with appropriate color
+                            # Color coding: green for receiving money (positive values), red for paying money (negative values)
+                            adjustment_color = "green" if acceptable_cost_adjustment > 0 else "red" if acceptable_cost_adjustment < 0 else "gray"
+                            if acceptable_cost_adjustment != 0:
+                                direction = "Receiving" if acceptable_cost_adjustment > 0 else "Paying"
+                                st.markdown(
+                                    f"<span style='color:{adjustment_color}; font-size:18px'>{direction}: ${abs(acceptable_cost_adjustment):.2f}</span>", 
+                                    unsafe_allow_html=True
+                                )
+                            else:
+                                st.markdown("<span style='color:gray; font-size:16px'>No adjustment to valuation</span>", unsafe_allow_html=True)
+                                
+                            # Calculate the net (P&L at valuation + adjustment)
+                            # FLIPPED: positive adjustment (receiving) increases net, negative (paying) decreases net
+                            net_amount = safe_total_pnl + acceptable_cost_adjustment
                         
-                        # Display the adjustment amount with appropriate color
-                        # Color coding: green for receiving money (positive values), red for paying money (negative values)
-                        adjustment_color = "green" if acceptable_cost_adjustment > 0 else "red" if acceptable_cost_adjustment < 0 else "gray"
-                        if acceptable_cost_adjustment != 0:
-                            direction = "Receiving" if acceptable_cost_adjustment > 0 else "Paying"
+                        # Now fill the Net placeholder with the updated value
+                        with net_placeholder.container():
+                            st.subheader("Net")
+                            net_color = "green" if net_amount > 0 else "red" if net_amount < 0 else "gray"
                             st.markdown(
-                                f"### {direction}: <span style='color:{adjustment_color}'>${abs(acceptable_cost_adjustment):.2f}</span>", 
+                                f"### <span style='color:{net_color}'>${net_amount:.2f}</span>", 
                                 unsafe_allow_html=True
                             )
-                        else:
-                            st.markdown("### No adjustment to valuation", unsafe_allow_html=True)
-                        
-                        # Calculate the net (P&L at valuation + adjustment)
-                        # FLIPPED: positive adjustment (receiving) increases net, negative (paying) decreases net
-                        net_amount = safe_total_pnl + acceptable_cost_adjustment
-                        
-                        # Display the Net
-                        st.subheader("Net")
-                        net_color = "green" if net_amount > 0 else "red" if net_amount < 0 else "gray"
-                        st.markdown(
-                            f"### <span style='color:{net_color}'>${net_amount:.2f}</span>", 
-                            unsafe_allow_html=True
-                        )
-                        
-                        # Put only the submit button in the form for final submission
+                            
+                        # Put only the submit button in the form for final submission - full width
                         with st.form(key=f"spread_form_{carry_idx}"):
-                            submit_button = st.form_submit_button("Submit Spread")
+                            col1, col2, col3 = st.columns([1, 1, 1])
+                            with col2:
+                                submit_button = st.form_submit_button("Submit Spread")
                             
                             if submit_button:
                                 if not st.session_state.rates_loaded:
@@ -432,7 +557,8 @@ def main_app():
                                                 "direction": leg["direction"],
                                                 "start_date": leg["start_date"].isoformat(),
                                                 "end_date": leg["end_date"].isoformat(),
-                                                "lots": leg["lots"]
+                                                "lots": leg["lots"],
+                                                "name": leg.get("name", f"Leg {leg['id']}")  # Include the leg name
                                             }
                                             for leg in legs_data
                                         ],
@@ -449,7 +575,7 @@ def main_app():
                     
                     except Exception as e:
                         st.error(f"Error calculating valuation: {str(e)}")
-    
+        
     # Tab 2: History
     with tab2:
         st.header("Spread History")
@@ -508,12 +634,34 @@ def main_app():
                             try:
                                 start_date = datetime.fromisoformat(leg['start_date'])
                                 end_date = datetime.fromisoformat(leg['end_date'])
+                                
+                                # Calculate days for this leg
+                                leg_days = (end_date - start_date).days
+                                
+                                # We don't have the rate directly in history, so we'll try to derive it if available
+                                rate = None
+                                valuation = None
+                                
+                                # If the leg has a 'rate' field, use it
+                                if 'rate' in leg:
+                                    rate = leg['rate']
+                                    valuation = rate * leg_days * leg['lots']
+                                    
+                                    # Format rate as dollar amount with 2 decimal places
+                                    formatted_rate = rate
+                                else:
+                                    formatted_rate = None
+                                
                                 leg_rows.append({
-                                    "Leg": leg['id'],
+                                    "Metal": spread['metal'],  # Put Metal first
+                                    "Leg": leg.get('name', f"Leg {leg['id']}"),  # Use custom name if available
                                     "Direction": leg['direction'],
                                     "Start": format_date(start_date),
                                     "End": format_date(end_date),
-                                    "Lots": leg['lots']
+                                    "Days": leg_days,
+                                    "Lots": leg['lots'],
+                                    "Daily Rate": f"{formatted_rate:.2f}" if formatted_rate is not None else "N/A",
+                                    "Valuation": f"{valuation:.2f}" if valuation is not None else "N/A"
                                 })
                             except (KeyError, ValueError) as e:
                                 st.error(f"Error parsing leg data: {str(e)}")

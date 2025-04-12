@@ -7,6 +7,7 @@ import time
 import json
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
+import sqlite3
 
 # Fix for the fitz import issue
 try:
@@ -63,16 +64,15 @@ def login_screen():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        user_id = st.selectbox(
-            "Select Market Maker ID",
-            options=["", "marketmaker"],
-            index=0,
-            help="Select your market maker ID"
-        )
+        # Single market maker user
+        market_maker_id = "MainMarketMaker"
         
-        if user_id and st.button("Login"):
-            st.session_state.user_id = user_id
-            st.success(f"Logged in as {user_id}")
+        st.write("Welcome to the Market Maker platform.")
+        st.write(f"You will be logged in as: **{market_maker_id}**")
+        
+        if st.button("Login as Market Maker"):
+            st.session_state.user_id = market_maker_id
+            st.success(f"Logged in as {market_maker_id}")
             time.sleep(1)  # Brief pause for UX
             st.rerun()
     
@@ -144,7 +144,7 @@ def display_position_chart(position_data: pd.DataFrame):
         pivot_df,
         labels=dict(x="Date", y="Metal", color="Position (Lots)"),
         title="Position Heatmap",
-        color_continuous_scale="RdBu_r",  # Blue for positive, red for negative
+        color_continuous_scale="RdBu_r",  # Red for negative, blue for positive
         aspect="auto"
     )
     
@@ -235,7 +235,7 @@ def display_interest_heatmap(interests: List[Dict]):
         pivot_df,
         labels=dict(x="Date", y="Metal", color="Net Interest (Lots)"),
         title="Market Interest Heatmap",
-        color_continuous_scale="RdBu_r",  # Blue for lend interest, red for borrow interest
+        color_continuous_scale="RdBu_r",  # Red for lend interest, blue for borrow interest
         aspect="auto"
     )
     
