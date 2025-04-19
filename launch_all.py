@@ -27,7 +27,7 @@ def start_app(script_name, port, app_name=None):
     if platform.system() == "Windows":
         cmd = ["start", "cmd", "/k"] + cmd
     
-    print(f"Starting {script_name} ({app_name}) on port {port}...")
+    print(f"Starting {script_name} on port {port}...")
     
     if platform.system() == "Windows":
         # Windows needs shell=True to open new windows
@@ -47,10 +47,31 @@ def start_app(script_name, port, app_name=None):
     return process
 
 def open_browser(port):
-    """Open the browser to the given port."""
+    """Open the browser to the given port in incognito/private mode."""
     url = f"http://localhost:{port}"
-    webbrowser.open(url)
-    print(f"Opening browser to {url}")
+    
+    # Detect the platform and use appropriate browser commands
+    if platform.system() == "Darwin":  # macOS
+        # Try Chrome first, then Safari if Chrome fails
+        try:
+            subprocess.run(["open", "-na", "Google Chrome", "--args", "--incognito", url])
+        except:
+            try:
+                subprocess.run(["open", "-a", "Safari", "--args", "--private", url])
+            except:
+                print(f"Failed to open {url} in private mode. Please open manually in private/incognito window.")
+    elif platform.system() == "Windows":
+        try:
+            subprocess.run(["start", "chrome", "--incognito", url], shell=True)
+        except:
+            print(f"Failed to open {url} in private mode. Please open manually in private/incognito window.")
+    else:  # Linux and others
+        try:
+            subprocess.run(["google-chrome", "--incognito", url])
+        except:
+            print(f"Failed to open {url} in private mode. Please open manually in private/incognito window.")
+    
+    print(f"Opening browser in private/incognito mode to {url}")
 
 def main():
     """Launch all Streamlit apps."""
@@ -61,13 +82,13 @@ def main():
         # NOTE: We're skipping Redis check since we're using fakeredis for testing
         print("Using fakeredis for testing - skipping real Redis check.")
         
-        # Configure apps and ports with explicit app names
+        # Configure apps and ports without custom app names to use the defaults in each app
         apps = [
-            ("user_app.py", 8501, "User App"),
-            ("mm_app.py", 8502, "Market Maker App"),
-            ("dashboard_app.py", 8503, "Dashboard"),
-            ("order_book_app.py", 8504, "Order Book"),
-            ("src/rate_checker.py", 8505, "Rate Checker")
+            ("user_app.py", 8501, None),
+            ("mm_app.py", 8502, None),
+            ("dashboard_app.py", 8503, None),
+            ("order_book_app.py", 8504, None),
+            ("src/rate_checker.py", 8505, None)
         ]
         
         # Start each app

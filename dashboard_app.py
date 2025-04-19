@@ -71,84 +71,166 @@ def init_session_state():
 METALS = ["Aluminum", "Copper", "Zinc", "Nickel", "Lead", "Tin"]
 
 def apply_theme():
-    """Apply dark theme for the entire application."""
-    # Always apply dark theme regardless of dark_mode setting
+    """Apply theme for the entire application."""
     st.markdown("""
     <style>
     /* Main app background and text */
     .stApp {
-        background-color: #0E1117;
-        color: #E0E0E0;
+        background-color: #ffffff;
+        color: #262730;
     }
     
     /* Sidebar and widgets background */
-    .st-cb, .st-d9, .st-da, .st-db, .st-dc, .st-dd, .st-de, 
-    .css-1aumxhk, .css-182u55c, .css-1x8cf1d, div[data-testid="stSidebar"] {
-        background-color: #1E2030;
-        color: #E0E0E0;
+    div[data-testid="stSidebar"] {
+        background-color: #f0f2f6;
+        color: #262730;
+    }
+    
+    /* Elements inside sidebar - make them consistent with sidebar */
+    div[data-testid="stSidebar"] .st-cb, div[data-testid="stSidebar"] .st-d9, 
+    div[data-testid="stSidebar"] .st-da, div[data-testid="stSidebar"] .st-db, 
+    div[data-testid="stSidebar"] .st-dc, div[data-testid="stSidebar"] .st-dd, 
+    div[data-testid="stSidebar"] .st-de, 
+    div[data-testid="stSidebar"] .css-1aumxhk, 
+    div[data-testid="stSidebar"] .css-182u55c, 
+    div[data-testid="stSidebar"] .css-1x8cf1d,
+    div[data-testid="stSidebar"] div[data-testid="stExpander"] {
+        background-color: #f0f2f6 !important;
+        color: #262730 !important;
+    }
+    
+    /* Make radio buttons and other controls in sidebar match sidebar background */
+    div[data-testid="stSidebar"] .st-bq,
+    div[data-testid="stSidebar"] div[role="radiogroup"],
+    div[data-testid="stSidebar"] label,
+    div[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+    div[data-testid="stSidebar"] .stRadio,
+    div[data-testid="stSidebar"] .stSlider {
+        background-color: #f0f2f6 !important;
     }
     
     /* Form inputs and interactive elements */
     .stTextInput, .stSelectbox, .stDateInput, .stNumberInput,
     input, select, textarea, .stSlider, [data-baseweb="select"] {
-        background-color: #262B3D !important;
-        color: #E0E0E0 !important;
-        border-color: #4F4F4F !important;
+        background-color: #fff !important;
+        color: #262730 !important;
+        border-color: #ccc !important;
     }
     
-    /* Buttons */
+    /* Buttons - update to match the light theme buttons in other apps */
     .stButton>button {
-        background-color: #4F8BF9;
-        color: white;
-        border: none;
+        background-color: #f0f2f6 !important;
+        color: #262730 !important;
+        border: 1px solid #ccc !important;
+        border-radius: 4px !important;
+        padding: 0.375rem 0.75rem !important;
+        font-size: 1rem !important;
+        line-height: 1.5 !important;
+        text-align: center !important;
+        text-decoration: none !important;
+        cursor: pointer !important;
     }
     
     .stButton>button:hover {
-        background-color: #3A7BD5;
+        background-color: #e9ecef !important;
+        color: #dc3545 !important; /* Red color on hover, matching other apps */
+        border-color: #dc3545 !important;
+    }
+    
+    /* Sidebar specific button styles */
+    div[data-testid="stSidebar"] .stButton>button {
+        background-color: #f0f2f6 !important;
+        color: #262730 !important;
+        border: 1px solid #ccc !important;
+    }
+    
+    div[data-testid="stSidebar"] .stButton>button:hover {
+        background-color: #e9ecef !important;
+        color: #dc3545 !important;
+        border-color: #dc3545 !important;
+    }
+    
+    /* Tabs styling to match the other app */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 40px;
+        border-radius: 0 !important;
+        padding: 10px 16px;
+        color: #262730;
+        background-color: #f8f9fa;
+        border: none !important;
+        border-right: 1px solid #dee2e6 !important;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #dc3545 !important; /* Red on hover */
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background-color: #f8f9fa !important;
+        color: #dc3545 !important; /* Red for selected tab */
+        border-bottom: 2px solid #dc3545 !important; /* Red underline for selected tab */
+    }
+    
+    /* Metal tabs styling for User Timeline */
+    .stTabs [role="tablist"] button {
+        background-color: #f8f9fa;
+        color: #262730;
+        border-radius: 0;
+        border: none;
+        border-right: 1px solid #dee2e6;
+        height: 40px;
+        padding: 10px 16px;
+    }
+    
+    .stTabs [role="tablist"] button:hover {
+        color: #dc3545 !important; /* Red on hover */
+    }
+    
+    .stTabs [role="tablist"] [aria-selected="true"] {
+        background-color: #f8f9fa !important;
+        color: #dc3545 !important; /* Red for selected tab */
+        border-bottom: 2px solid #dc3545 !important; /* Red underline for selected tab */
+        font-weight: 500;
     }
     
     /* Plotly charts */
     .stPlotlyChart {
-        background-color: #1E2030;
+        background-color: #ffffff;
     }
     
     /* Data frames and tables */
     .stDataFrame, div[data-testid="stTable"] {
-        background-color: #1E2030;
+        background-color: #fff;
     }
     
     .dataframe {
-        color: #E0E0E0 !important;
+        color: #262730 !important;
     }
     
     .dataframe th {
-        background-color: #2C3154 !important;
-        color: #E0E0E0 !important;
+        background-color: #f0f2f6 !important;
+        color: #262730 !important;
     }
     
     .dataframe td {
-        color: #E0E0E0 !important;
+        color: #262730 !important;
     }
     
-    /* Expanders and containers */
-    .st-ae, .st-af, .st-ag, .st-ah, .st-ai, .st-aj, 
-    div[data-testid="stExpander"], .streamlit-expanderHeader {
-        background-color: #262B3D !important;
-        color: #E0E0E0 !important;
+    /* Expanders and containers - those in main content area should be white */
+    .main .streamlit-expanderHeader {
+        background-color: #ffffff !important;
+        color: #262730 !important;
     }
     
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #1E2030;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        color: #E0E0E0;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background-color: #4F8BF9 !important;
-        color: white !important;
+    div[data-testid="stExpander"] {
+        background-color: #ffffff !important;
+        color: #262730 !important;
     }
     
     /* Legend container */
@@ -157,38 +239,38 @@ def apply_theme():
         flex-wrap: wrap;
         gap: 15px;
         padding: 10px;
-        border: 1px solid #444;
+        border: 1px solid #ddd;
         border-radius: 5px;
-        background-color: #262B3D;
+        background-color: #ffffff;
         margin-top: 10px;
-        color: #E0E0E0;
+        color: #262730;
     }
     
     /* Metric widgets */
     div[data-testid="stMetricValue"] {
-        color: #E0E0E0 !important;
+        color: #262730 !important;
     }
     
     /* Info, warning, error boxes */
     div[data-testid="stInfoBox"] {
-        background-color: #1E2D3D !important;
-        color: #E0E0E0 !important;
+        background-color: #e1f5fe !important;
+        color: #0277bd !important;
     }
     
     div[data-testid="stWarningBox"] {
-        background-color: #3D341E !important;
-        color: #E0E0E0 !important;
+        background-color: #fff8e1 !important;
+        color: #ff8f00 !important;
     }
     
     div[data-testid="stErrorBox"] {
-        background-color: #3D1E1E !important;
-        color: #E0E0E0 !important;
+        background-color: #ffebee !important;
+        color: #c62828 !important;
     }
     
     /* Hover labels */
     div[data-baseweb="tooltip"], div[data-baseweb="popover"] {
-        background-color: #2C3154 !important;
-        color: #E0E0E0 !important;
+        background-color: #ffffff !important;
+        color: #262730 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -672,7 +754,7 @@ def display_user_timeline(interests: List[Dict], chart_template=None):
     
     Args:
         interests: List of spread interests to display
-        chart_template: Optional chart template for dark mode styling
+        chart_template: Optional chart template for styling
     """
     if not interests:
         st.warning("No interests or orders available")
@@ -692,6 +774,33 @@ def display_user_timeline(interests: List[Dict], chart_template=None):
     
     # Sort metals
     all_metals = sorted(list(all_metals))
+    
+    # Create custom CSS for better tab styling to match the light theme in other apps
+    st.markdown("""
+    <style>
+    div[data-testid="stHorizontalBlock"] button[role="tab"] {
+        background-color: #f8f9fa;
+        color: #262730;
+        border-radius: 0;
+        border: none;
+        border-right: 1px solid #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+        height: 40px;
+        padding: 10px 16px;
+    }
+    
+    div[data-testid="stHorizontalBlock"] button[role="tab"]:hover {
+        color: #dc3545 !important; /* Red on hover */
+    }
+    
+    div[data-testid="stHorizontalBlock"] button[role="tab"][aria-selected="true"] {
+        background-color: #f8f9fa !important;
+        color: #dc3545 !important; /* Red for selected tab */
+        border-bottom: 2px solid #dc3545 !important; /* Red underline for selected tab */
+        font-weight: 500;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     # Create tabs for each metal (no "All Metals" tab)
     metal_tabs = st.tabs(all_metals)
@@ -1028,20 +1137,20 @@ def display_user_timeline(interests: List[Dict], chart_template=None):
             if chart_template:
                 fig.update_layout(template=chart_template)
                 
-                # Fix plot background color to match dark theme
+                # Fix plot background color to match white theme
                 fig.update_layout(
-                    paper_bgcolor="#1E2030",
-                    plot_bgcolor="#1E2030",
-                    font=dict(color="#E0E0E0"),
+                    paper_bgcolor="#ffffff",
+                    plot_bgcolor="#ffffff",
+                    font=dict(color="#262730"),
                     yaxis=dict(
-                        tickfont=dict(color="#E0E0E0", size=18, family="Arial", weight="bold")
+                        tickfont=dict(color="#262730", size=18, family="Arial", weight="bold")
                     ),
                     xaxis=dict(
-                        tickfont=dict(color="#E0E0E0", size=12)
+                        tickfont=dict(color="#262730", size=12)
                     ),
                     hoverlabel=dict(
-                        bgcolor="#262B3D",
-                        font_color="#E0E0E0"
+                        bgcolor="#ffffff",
+                        font_color="#262730"
                     )
                 )
             
@@ -1202,11 +1311,11 @@ def display_user_timeline(interests: List[Dict], chart_template=None):
                 flex-wrap: wrap;
                 gap: 15px;
                 padding: 10px;
-                border: 1px solid #444;
+                border: 1px solid #ddd;
                 border-radius: 5px;
-                background-color: #262B3D;
+                background-color: #ffffff;
                 margin-top: 10px;
-                color: #E0E0E0;
+                color: #262730;
             }
             </style>
             
@@ -1254,26 +1363,25 @@ def tooltip(text, help_text):
     return f"{text} " + f'<span data-toggle="tooltip" title="{help_text}">ℹ️</span>'
 
 def create_chart_template():
-    """Create chart templates based on dark/light mode."""
-    # Use dark mode template for all charts
+    """Create chart templates for better contrast."""
     template = {
         'layout': {
-            'paper_bgcolor': '#1E2030',
-            'plot_bgcolor': '#1E2030',
-            'font': {'color': '#E0E0E0'},
-            'title': {'font': {'color': '#E0E0E0'}},
-            'legend': {'font': {'color': '#E0E0E0'}},
+            'paper_bgcolor': '#ffffff',
+            'plot_bgcolor': '#ffffff',
+            'font': {'color': '#262730'},
+            'title': {'font': {'color': '#262730'}},
+            'legend': {'font': {'color': '#262730'}},
             'xaxis': {
-                'gridcolor': '#444',
-                'zerolinecolor': '#444',
-                'title': {'font': {'color': '#E0E0E0'}},
-                'tickfont': {'color': '#E0E0E0', 'size': 12}
+                'gridcolor': '#e6e6e6',
+                'zerolinecolor': '#999999',
+                'title': {'font': {'color': '#262730'}},
+                'tickfont': {'color': '#262730', 'size': 12}
             },
             'yaxis': {
-                'gridcolor': '#444',
-                'zerolinecolor': '#444',
-                'title': {'font': {'color': '#E0E0E0'}},
-                'tickfont': {'color': '#E0E0E0'}
+                'gridcolor': '#e6e6e6',
+                'zerolinecolor': '#999999',
+                'title': {'font': {'color': '#262730'}},
+                'tickfont': {'color': '#262730'}
             }
         }
     }
