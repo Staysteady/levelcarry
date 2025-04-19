@@ -1,11 +1,14 @@
 import streamlit as st
 import pandas as pd
+import sys
+import argparse
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import time
 import json
 from pathlib import Path
+import sqlite3
 
 # Fix for the fitz import issue
 try:
@@ -22,10 +25,21 @@ from src.core_engine import (
     TONS_PER_LOT
 )
 
+# Parse command line arguments
+def parse_args():
+    parser = argparse.ArgumentParser(description="LME Spread Trading Order Book App")
+    parser.add_argument("--app_name", type=str, default="Order Book", help="Application name")
+    # Get only known args, ignore streamlit's own args
+    return parser.parse_known_args()[0]
+
+# Get command line arguments
+args = parse_args()
+app_name = args.app_name
+
 # Page configuration
 st.set_page_config(
-    page_title="LME Spread Trading - Order Book",
-    page_icon="📖",
+    page_title=f"Order Book",
+    page_icon="📊",
     layout="wide"
 )
 

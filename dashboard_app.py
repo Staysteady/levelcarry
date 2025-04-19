@@ -10,6 +10,20 @@ from typing import Dict, List, Tuple, Optional
 import numpy as np
 import base64
 import io
+import sys
+import argparse
+import sqlite3
+
+# Parse command line arguments
+def parse_args():
+    parser = argparse.ArgumentParser(description="LME Spread Trading Dashboard App")
+    parser.add_argument("--app_name", type=str, default="Dashboard", help="Application name")
+    # Get only known args, ignore streamlit's own args
+    return parser.parse_known_args()[0]
+
+# Get command line arguments
+args = parse_args()
+app_name = args.app_name
 
 # Fix for the fitz import issue
 try:
@@ -28,7 +42,7 @@ from src.core_engine import (
 
 # Page configuration
 st.set_page_config(
-    page_title="LME Spread Trading - Dashboard",
+    page_title=f"Dashboard",
     page_icon="📊",
     layout="wide"
 )

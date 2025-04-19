@@ -33,9 +33,14 @@ logs/
 
 # Temporary files
 *.tmp
+.DS_Store
 
 # PDF files (can be large)
 *.pdf
 
 # Redis dump
 dump.rdb
+
+# Temp directories
+temp/
+temp_pdfs/

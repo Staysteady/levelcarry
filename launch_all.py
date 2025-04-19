@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Launch script for the LME Spread Trading Platform.
-This script launches all four Streamlit apps in separate processes.
+This script launches all Streamlit apps in separate processes.
 """
 
 import subprocess
@@ -12,9 +12,13 @@ import signal
 import sys
 import webbrowser
 
-def start_app(script_name, port):
+def start_app(script_name, port, app_name=None):
     """Start a Streamlit app at the specified port."""
-    cmd = ["streamlit", "run", script_name, "--server.port", str(port)]
+    cmd = ["streamlit", "run", script_name, "--server.port", str(port), "--server.headless", "true"]
+    
+    # Add app name as a command-line parameter if provided
+    if app_name:
+        cmd.extend(["--", "--app_name", app_name])
     
     # For Windows, we need to set shell=True for the process to run properly
     use_shell = platform.system() == "Windows"
@@ -23,7 +27,7 @@ def start_app(script_name, port):
     if platform.system() == "Windows":
         cmd = ["start", "cmd", "/k"] + cmd
     
-    print(f"Starting {script_name} on port {port}...")
+    print(f"Starting {script_name} ({app_name}) on port {port}...")
     
     if platform.system() == "Windows":
         # Windows needs shell=True to open new windows
@@ -49,7 +53,7 @@ def open_browser(port):
     print(f"Opening browser to {url}")
 
 def main():
-    """Launch all four Streamlit apps."""
+    """Launch all Streamlit apps."""
     # Create process list to track what we've started
     processes = []
     
@@ -57,17 +61,18 @@ def main():
         # NOTE: We're skipping Redis check since we're using fakeredis for testing
         print("Using fakeredis for testing - skipping real Redis check.")
         
-        # Configure apps and ports
+        # Configure apps and ports with explicit app names
         apps = [
-            ("user_app.py", 8501),
-            ("mm_app.py", 8502),
-            ("dashboard_app.py", 8503),
-            ("order_book_app.py", 8504)
+            ("user_app.py", 8501, "User App"),
+            ("mm_app.py", 8502, "Market Maker App"),
+            ("dashboard_app.py", 8503, "Dashboard"),
+            ("order_book_app.py", 8504, "Order Book"),
+            ("src/rate_checker.py", 8505, "Rate Checker")
         ]
         
         # Start each app
-        for script_name, port in apps:
-            process = start_app(script_name, port)
+        for script_name, port, app_name in apps:
+            process = start_app(script_name, port, app_name)
             processes.append(process)
             
             # Slight delay to avoid port conflicts during initialization
@@ -78,13 +83,14 @@ def main():
         print("Market Maker App: http://localhost:8502")
         print("Dashboard: http://localhost:8503")
         print("Order Book: http://localhost:8504")
+        print("Rate Checker: http://localhost:8505")
         
         # Give apps time to initialize before opening browsers
         print("\nWaiting for apps to initialize...")
         time.sleep(5)
         
         # Open each app in the browser
-        for _, port in apps:
+        for _, port, _ in apps:
             open_browser(port)
         
         print("\nPress Ctrl+C to shut down all applications...")
